@@ -1,0 +1,3 @@
+smbclient -L //192.168.107.133 -N 
+smbclient //192.168.107.133/reports -N  
+ssh -oKexAlgorithms=+diffie-hellman-group1-sha1 -oHostKeyAlgorithms=+ssh-rsa -oCiphers=+aes128-cbc pete@192.168.107.133
