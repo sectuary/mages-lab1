@@ -4,3 +4,10 @@ ls
 get staff.txt
 get notes.txt
 ssh -oKexAlgorithms=+diffie-hellman-group1-sha1 -oHostKeyAlgorithms=+ssh-rsa -oCiphers=+aes128-cbc pete@192.168.107.133
+
+
+Lab 4
+Directory BruteForce
+sudo apt update && sudo apt install ffuf -y
+
+ffuf -u http://<CHANGE TO YOUR IP>/FUZZ -w /usr/share/wordlists/dirb/common.txt -e .php,.html,.txt -mc 200,204,301,302
