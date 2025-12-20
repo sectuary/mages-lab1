@@ -1,0 +1,94 @@
+# Lesson 6-File Misconfiguration
+
+## Lesson Plan
+
+https://tryhackme.com/r/room/linprivesc  [SUID Bit Set]
+
+https://tryhackme.com/r/room/linuxprivesc [SUID exploitation] (Optional)
+
+### **Permission Bits**:
+
+- **`r` (read)**: 4
+- **`w` (write)**: 2
+- **`x` (execute)**: 1
+
+The sum of these values determines the permission level for each user class:
+
+- `0` = No permission
+- `1` = Execute only
+- `2` = Write only
+- `3` = Write + Execute (2 + 1)
+- `4` = Read only
+- `5` = Read + Execute (4 + 1)
+- `6` = Read + Write (4 + 2)
+- `7` = Read + Write + Execute (4 + 2 + 1)
+
+### **`chmod 777`**
+
+- **`777`** grants:
+    - `7` for **Owner**: Read (4) + Write (2) + Execute (1) = 7
+    - `7` for **Group**: Read (4) + Write (2) + Execute (1) = 7
+    - `7` for **Others**: Read (4) + Write (2) + Execute (1) = 7
+
+When you set SUID or SGID, you add their values to the **first digit** of the permission number:
+
+1. **SUID** (4): Grants the file owner’s privileges to the user executing the file.
+    - Example: `chmod 4755 file`
+        - `4` = SUID bit.
+        - `755` = Read, write, and execute for the owner, and read and execute for group/others.
+2. **SGID** (2): Grants group privileges to the user executing the file or inherits the group for directories.
+    - Example: `chmod 2755 file`
+        - `2` = SGID bit.
+        - `755` = Read, write, and execute for the owner, and read and execute for group/others.
+3. **Both SUID and SGID** (4 + 2 = 6):
+    - Example: `chmod 6755 file`
+        - `6` = SUID + SGID.
+        - `755` = Regular permissions.
+
+*Even if you don’t specify the group explicitly, group permissions will still be set based on the default behavior or inherited attributes.
+
+## **Example**
+
+The difference between **`4755`** and **`755`** lies in the **special permissions** applied to the file or directory. Specifically, **`4755`** includes the **SUID (Set-user Identification)** bit, whereas **`755`** does not. Let’s break it down:
+
+---
+
+### **1. Regular Permissions (`755`)**
+
+When you set a file to `755`:
+
+- **Owner (User)**: `7` = `rwx` (read, write, execute).
+- **Group**: `5` = `r-x` (read, execute).
+- **Others**: `5` = `r-x` (read, execute).
+
+### **Behavior of `755`**:
+
+- **Execution**: When someone executes the file, it runs with the **permissions of the user who ran it**.
+- No special privileges are granted beyond the regular permissions.
+
+---
+
+### **2. Special Permissions (`4755`)**
+
+When you set a file to `4755`, it means:
+
+- **`4` in the first digit**: The **SUID** bit is set.
+- **Rest of the digits (755)**: Same as regular permissions (`rwxr-xr-x`).
+
+### **Behavior of `4755`**:
+
+- **Execution**: When someone executes the file, it runs with the **permissions of the file owner**, regardless of who runs it.
+- This is useful for programs that need elevated privileges temporarily to perform specific tasks.
+
+### **Key Examples**
+
+| **Octal Value** | **Permissions** | **Meaning** |
+| --- | --- | --- |
+| `0755` | `-rwxr-xr-x` | Normal file permissions (no SUID or SGID). |
+| `4755` | `-rwsr-xr-x` | SUID set: File runs as the owner’s privilege. |
+| `2755` | `-rwxr-sr-x` | SGID set: File runs as the group’s privilege. |
+| `6755` | `-rwsr-sr-x` | Both SUID and SGID set: Runs as owner and group privileges. |
+
+## Resources
+
+https://gtfobins.github.io/#+suid [SUID]
