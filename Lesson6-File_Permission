@@ -89,6 +89,18 @@ When you set a file to `4755`, it means:
 | `2755` | `-rwxr-sr-x` | SGID set: File runs as the group’s privilege. |
 | `6755` | `-rwsr-sr-x` | Both SUID and SGID set: Runs as owner and group privileges. |
 
+### **More Examples***
+| Value | SUID | SGID | Sticky | Meaning | On Executable | On Directory |
+|-------|------|------|--------|---------|---------------|--------------|
+| 0 | - | - | - | None | Normal execution | Normal behavior |
+| 1 | - | - | ✓ | Sticky only | No effect | Only file owner can delete their own files (e.g., /tmp) |
+| 2 | - | ✓ | - | SGID only | Runs with file group privileges | New files inherit directory's group |
+| 3 | - | ✓ | ✓ | SGID + Sticky | Runs with file group privileges | New files inherit group + only owner can delete |
+| 4 | ✓ | - | - | SUID only | Runs with file owner privileges (e.g., /usr/bin/passwd) | No effect |
+| 5 | ✓ | - | ✓ | SUID + Sticky | Runs with file owner privileges | Only owner can delete their files |
+| 6 | ✓ | ✓ | - | SUID + SGID | Runs with both owner and group privileges | New files inherit directory's group |
+| 7 | ✓ | ✓ | ✓ | All three | Runs with owner and group privileges | New files inherit group + only owner can delete |
+
 ## Resources
 
 https://gtfobins.github.io/#+suid [SUID]
