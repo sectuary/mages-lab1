@@ -390,57 +390,317 @@ key7: 100 bytes (UNUSED!)
 
 ---
 
-## IDA Free Analysis Guide
+## IDA Free Step-by-Step Guide
 
-### How to Analyze mock_1.exe in IDA Free
+### Complete Walkthrough: Answering All 4 Questions
 
-#### Step 1: Load Binary
-1. Open mock_1.exe in IDA Free
-2. Let auto-analysis complete
+---
 
-#### Step 2: Find Main Function
-1. **Ctrl+F** → Search for string "input.txt"
-2. Press **X** for cross-references
-3. Navigate to main function
+### **Question 1a: How mock_1.exe uses key files (key0-key7)**
 
-#### Step 3: Identify Key Structures
+#### Step 1: Load Binary in IDA Free
+1. **File → Open** → Select `mock_1.exe`
+2. Click **OK** on all dialogs (accept defaults)
+3. Wait for auto-analysis to complete (progress bar at bottom)
 
-**Look for:**
-```assembly
-CALL    time                 ; Get system time
-CALL    localtime            ; Convert to local time
-MOV     EAX, [EAX+18h]       ; Access tm_wday
+#### Step 2: Find String References
+1. Press **Shift+F12** → Opens "Strings window"
+2. Look for strings like:
+   - "input.txt"
+   - "output.txt"
+   - "key0", "key1", etc.
+3. Double-click **"input.txt"** → Jumps to data section
+
+#### Step 3: Find Cross-References
+1. With cursor on "input.txt", press **X** (cross-references)
+2. Dialog shows where this string is used
+3. Double-click the function reference → Jumps to main function
+
+#### Step 4: Find the Encrypt Function
+1. Scroll through main function
+2. Look for **CALL** instructions to subroutines
+3. Find a call that likely does encryption (appears in a loop)
+4. Double-click the CALL target (e.g., `sub_401234`) → Jumps to encrypt function
+
+#### Step 5: Analyze Encryption Loop
+In the encrypt function, press **F5** (decompile) to see pseudocode:
+
+**What to look for:**
+```c
+while ( (v1 = fgetc(fsrc)) != -1 )  // Read input byte
+{
+  v2 = fgetc(fkey);                  // Read key byte
+  if ( v2 == -1 )                    // Key EOF check
+  {
+    rewind(fkey);                    // ← CIRCULAR KEY!
+    v2 = fgetc(fkey);
+  }
+  fputc(v1 + v2, fout);              // ← ADD OPERATION!
+}
 ```
 
-**Switch statement will show:**
+**Answer for 1a:**
+- Key file is read **byte-by-byte** alongside input
+- Uses **ADD operation** (`v1 + v2`)
+- When key reaches EOF, **rewind()** makes it circular
+- This creates a repeating key stream
+
+#### Step 6: Verify with Assembly (Optional)
+1. Press **ESC** to go back to disassembly view
+2. Press **Tab** to toggle between text and graph view
+3. Look for assembly pattern:
 ```assembly
-CMP     EAX, 0
-JE      loc_key0
-CMP     EAX, 1
-JE      loc_key1
-...
-CMP     EAX, 6
-JE      loc_key6
+call    _fgetc          ; Read input
+mov     [ebp+var_9], al
+call    _fgetc          ; Read key
+cmp     eax, 0FFFFFFFFh ; Check EOF (-1)
+jnz     short loc_skip
+call    _rewind         ; ← Rewind if EOF
+call    _fgetc
+loc_skip:
+mov     [ebp+var_8], al
+movzx   edx, [ebp+var_9]
+movzx   eax, [ebp+var_8]
+add     eax, edx        ; ← ADD INSTRUCTION
 ```
 
-#### Step 4: Find Encrypt Function
+---
 
-**Search for:**
-- String "Encrypt" or "encryption"
-- `fgetc` calls (read bytes)
-- `fputc` calls (write bytes)
-- `ADD` instruction between fgetc calls
+### **Question 1b: Key Selection Criterion**
 
-**Encryption core:**
-```assembly
-CALL    fgetc           ; Read input
-MOV     [var_input], AL
-CALL    fgetc           ; Read key
-MOV     [var_key], AL
-MOV     AL, [var_input]
-ADD     AL, [var_key]   ; ← ENCRYPTION HAPPENS HERE
-CALL    fputc           ; Write output
+#### Step 1: Find Key Selection Code
+1. In main function (found from Step 3 above)
+2. Press **F5** to see decompiled view
+3. Scroll to find where key filename is selected
+
+#### Step 2: Look for Time Functions
+Search for these patterns:
+```c
+time(&v10);                          // Get current time
+v3 = localtime(&v10);                // Convert to local time
+v4 = v3->tm_wday;                    // ← THIS IS THE CRITERION!
+
+switch ( v4 )                        // Switch on day of week
+{
+  case 0: key_file_use = "key0"; break;
+  case 1: key_file_use = "key1"; break;
+  case 2: key_file_use = "key2"; break;
+  ...
+  case 6: key_file_use = "key6"; break;
+}
 ```
+
+**Answer for 1b:**
+- Uses **`tm_wday`** field from `struct tm`
+- Range: **0 (Sunday) to 6 (Saturday)**
+- **Note:** key7 is NEVER selected!
+
+#### Step 3: Verify with Assembly Opcodes
+1. Click on the `localtime()` call in decompiled view
+2. Press **ESC** → Jumps to corresponding assembly
+3. Look for pattern:
+```assembly
+call    _time           ; time(&rawtime)
+lea     eax, [ebp+var_10]
+mov     [esp], eax
+call    _localtime      ; localtime(&rawtime)
+mov     [ebp+var_4], eax
+mov     eax, [ebp+var_4]
+mov     eax, [eax+18h]  ; ← Offset 0x18 = tm_wday (24 bytes)
+mov     [ebp+var_8], eax
+```
+
+#### Step 4: Confirm struct tm Layout (Advanced)
+1. Press **Shift+F9** → Opens "Structures" window
+2. If `struct tm` exists, expand it:
+```
+struct tm {
+    int tm_sec;      // +0x00
+    int tm_min;      // +0x04
+    int tm_hour;     // +0x08
+    int tm_mday;     // +0x0C
+    int tm_mon;      // +0x10
+    int tm_year;     // +0x14
+    int tm_wday;     // +0x18 ← HERE!
+    int tm_yday;     // +0x1C
+    int tm_isdst;    // +0x20
+};
+```
+
+The offset **0x18** (24 decimal) corresponds to **tm_wday**.
+
+---
+
+### **Question 2a: How input.txt is encrypted**
+
+#### Step 1: Analyze Encrypt Function (Already Found)
+From Question 1a, you already located the encrypt function. Press **F5** on it.
+
+#### Step 2: Identify the Algorithm
+Look at the core operation:
+```c
+while ( (input_byte = fgetc(fsrc)) != -1 )
+{
+  key_byte = fgetc(fkey);
+  if ( key_byte == -1 ) {
+    rewind(fkey);
+    key_byte = fgetc(fkey);
+  }
+  fputc(input_byte + key_byte, fout);  // ← ADD CIPHER
+}
+```
+
+**Answer for 2a:**
+- **Algorithm:** Simple ADD cipher (additive cipher)
+- **Formula:** `encrypted_byte = (input_byte + key_byte) mod 256`
+- **Key reuse:** Circular (rewind when EOF)
+- **No salt, no IV, no proper crypto**
+
+#### Step 3: Find the ADD Opcode
+1. In encrypt function assembly view
+2. Locate the encryption operation:
+```assembly
+movzx   edx, [ebp+var_input]   ; Load input byte (zero-extend)
+movzx   eax, [ebp+var_key]     ; Load key byte
+add     eax, edx               ; ← OPCODE: 01 D0 or 03 C2 (ADD)
+movzx   eax, al                ; Keep only low byte (mod 256)
+mov     [esp], eax
+call    _fputc                 ; Write encrypted byte
+```
+
+#### Step 4: Verify Opcode
+1. Click on the **ADD** instruction
+2. Look at hex view (at top of IDA window)
+3. Common ADD opcodes:
+   - `00` = ADD r/m8, r8
+   - `01` = ADD r/m32, r32
+   - `02` = ADD r8, r/m8
+   - `03` = ADD r32, r/m32
+
+**Note:** This is NOT XOR (opcode 31h/33h)!
+
+---
+
+### **Question 2b: Decryption Process for Settings.ini**
+
+#### Step 1: Understand the Math
+Since encryption is: `encrypted = input + key`
+
+Decryption is: `input = encrypted - key`
+
+#### Step 2: Manual First-Byte Analysis in IDA
+
+**Open Settings.ini in IDA:**
+1. **File → Open** → Select `Settings.ini`
+2. IDA will show hex bytes
+
+**View first bytes:**
+```
+00000000: 19 6A 38 FD 68 BE 20 75 57 DC 42 CB 51 68 5F 72
+```
+
+First byte: **0x19** (decimal 25)
+
+#### Step 3: Try Each Key File
+1. **File → Open** → Select `key2`
+2. View first byte: **0xC5** (decimal 197)
+
+**Calculate by hand:**
+```
+Encrypted: 0x19 = 25 (decimal)
+Key:       0xC5 = 197 (decimal)
+
+Decrypted = (25 - 197) mod 256
+          = -172 mod 256
+          = 256 - 172
+          = 84 (decimal)
+          = 0x54 (hex)
+          = 'T' (ASCII)
+```
+
+Press **Shift+E** in IDA → Opens ASCII table
+Find 0x54 → **'T'** ✓
+
+#### Step 4: Verify with Python (Recommended)
+Create script `decrypt.py`:
+```python
+# Read encrypted file
+with open('Settings.ini', 'rb') as f:
+    encrypted = f.read()
+
+# Try all keys
+for key_num in range(8):
+    with open(f'key{key_num}', 'rb') as f:
+        key = f.read()
+
+    # Decrypt
+    decrypted = bytes((encrypted[i] - key[i % len(key)]) % 256
+                      for i in range(len(encrypted)))
+
+    # Check if valid ASCII
+    try:
+        text = decrypted.decode('ascii')
+        if text.isprintable() or '\n' in text:
+            print(f"key{key_num}: {repr(text)}")
+    except:
+        print(f"key{key_num}: Not valid ASCII")
+```
+
+Run: `python3 decrypt.py`
+
+**Output:**
+```
+key2: 'THis is a mock test\n'
+key3: 'THis is a mock test\n'
+key4: 'THis is a mock test\n'
+key5: 'THis is a mock test\n'
+key6: 'THis is a mock test\n'
+```
+
+**Answer for 2b:**
+Multiple keys work because **key2-key6 have identical first 20 bytes**!
+
+Settings.ini is only 20 bytes, so any of these keys decrypt it correctly.
+
+The decrypted message is: **"THis is a mock test"** (with newline)
+
+---
+
+### **Quick Reference: IDA Free Hotkeys**
+
+| Hotkey | Function |
+|--------|----------|
+| **F5** | Decompile (Hex-Rays pseudocode) |
+| **ESC** | Go back / Return to assembly |
+| **Tab** | Toggle text/graph view |
+| **G** | Jump to address |
+| **X** | Cross-references (where is this used?) |
+| **N** | Rename variable/function |
+| **;** | Add comment |
+| **Shift+F12** | Strings window |
+| **Shift+F9** | Structures window |
+| **Ctrl+F** | Text search |
+| **Space** | Toggle assembly/text view |
+
+---
+
+### **Tips for Mock Test Success**
+
+1. **Start with strings** (Shift+F12) → Find entry points
+2. **Use cross-references** (X key) → Trace data flow
+3. **Decompile early** (F5) → Understand logic quickly
+4. **Look for patterns:**
+   - `time()` + `localtime()` = Time-based logic
+   - `fgetc()` loops = Byte-by-byte processing
+   - `rewind()` = Circular buffer/key
+   - `ADD/XOR` = Encryption operation
+5. **Verify with opcodes:**
+   - ADD = 00/01/02/03
+   - XOR = 30/31/32/33
+   - CMP = 38/39/3A/3B
+6. **Check struct offsets:**
+   - `[EAX+18h]` after `localtime()` = tm_wday
+7. **Test your theory with Python** → Confirm findings
 
 ---
 
