@@ -20,6 +20,505 @@ THis is a mock test
 
 ---
 
+## Beginner's Guide: Understanding the Concepts
+
+**For students new to reverse engineering and malware analysis**
+
+This section explains all the technical terms in simple language. If you're comfortable with these concepts, skip to the questions below.
+
+---
+
+### What is a Binary/Executable File?
+
+**Simple explanation:** A binary is a file containing **machine code** - instructions that the computer's processor understands directly.
+
+- **Source code** (like `mock_1.c`) is what humans write in C/Python/etc.
+- **Binary** (like `mock_1.exe`) is what the computer runs
+- **Reverse engineering** means converting the binary BACK to understand what it does (without having the source code)
+
+**Think of it like:** Source code is a recipe in English, binary is the same recipe written in a secret code only the oven understands.
+
+---
+
+### What is Assembly Language?
+
+**Simple explanation:** Assembly is a **human-readable** version of machine code.
+
+```
+Machine code (hex):  8B 45 F8
+Assembly:            mov eax, [ebp-8]
+Meaning in English:  "Copy the value from memory location (ebp-8) into register eax"
+```
+
+**Key concepts:**
+- **Instructions** = Actions the CPU performs (like MOV, ADD, CALL)
+- **Registers** = Tiny storage spaces inside the CPU (like EAX, EBX, ECX)
+- **Memory addresses** = Locations in RAM where data is stored
+
+**Think of it like:** Assembly is the step-by-step instruction manual the CPU follows, like "take ingredient from shelf 3, pour into bowl A, stir 5 times."
+
+---
+
+### What are Registers?
+
+**Simple explanation:** Registers are **super-fast temporary storage** inside the CPU.
+
+**Common x86 registers:**
+| Register | Purpose | Real-world analogy |
+|----------|---------|-------------------|
+| **EAX** | Accumulator (math results) | Calculator display |
+| **EBX** | Base register (data pointer) | Bookmark in a book |
+| **ECX** | Counter (loop iterations) | Tally counter |
+| **EDX** | Data register | Scratch paper |
+| **ESI** | Source Index (copying FROM) | Copy machine's input tray |
+| **EDI** | Destination Index (copying TO) | Copy machine's output tray |
+| **EBP** | Base Pointer (stack frame) | Sticky note marking your page |
+| **ESP** | Stack Pointer (top of stack) | Top card in a deck |
+
+**Example:**
+```assembly
+mov eax, 5       ; Put number 5 into EAX (like writing "5" on scratch paper)
+add eax, 3       ; Add 3 to EAX (now EAX = 8)
+```
+
+---
+
+### What are Opcodes?
+
+**Simple explanation:** Opcodes are the **actual numeric codes** for assembly instructions.
+
+```
+Assembly:   ADD  AL, [EBP-8]
+Opcode:     02 45 F8
+            ↑   ↑  ↑
+            │   │  └─ Offset (-8)
+            │   └──── Register (EBP)
+            └──────── Instruction (ADD)
+```
+
+**Why it matters:**
+- **ADD** opcodes: 00, 01, 02, 03
+- **XOR** opcodes: 30, 31, 32, 33
+- By looking at the opcode, you can tell if encryption uses ADD or XOR!
+
+**Think of it like:** If assembly is "turn left," the opcode is the steering wheel's exact rotation angle in degrees.
+
+---
+
+### What is the Stack?
+
+**Simple explanation:** The stack is a **temporary scratch space** in memory, organized like a stack of plates.
+
+**LIFO = Last In, First Out** (like stacking dishes)
+
+```
+Stack grows DOWN in memory:
+
+High Address
+    │
+    ├─ [Plate 1: Old data]      ← EBP (Base Pointer - bottom of your stack frame)
+    ├─ [Plate 2: Variable x]    ← EBP-4
+    ├─ [Plate 3: Variable y]    ← EBP-8
+    ├─ [Plate 4: Temp result]   ← ESP (Stack Pointer - top of stack)
+    │
+Low Address
+```
+
+**Common operations:**
+- `push eax` = Add plate on top (store EAX on stack)
+- `pop eax` = Remove top plate (load into EAX)
+- `[ebp-8]` = Access local variable 8 bytes below base pointer
+
+**Think of it like:** A stack of cafeteria trays - you always take from the top, and new trays go on top.
+
+---
+
+### What are Function Calls?
+
+**Simple explanation:** A function is a **reusable block of code** with a name.
+
+**In C:**
+```c
+int add(int a, int b) {
+    return a + b;
+}
+
+result = add(5, 3);  // Calls the function
+```
+
+**In Assembly:**
+```assembly
+push 3           ; Put argument 2 on stack
+push 5           ; Put argument 1 on stack
+call add         ; Jump to the 'add' function
+                 ; (return value will be in EAX)
+```
+
+**The CALL instruction does 2 things:**
+1. Save the **return address** (where to come back)
+2. Jump to the function
+
+**Think of it like:** Calling a function is like asking someone to do a task, then waiting for them to report back with the result.
+
+---
+
+### Number Systems: Hex, Decimal, Binary
+
+**Simple explanation:** Different ways to write the same number.
+
+| Decimal | Hex | Binary | ASCII |
+|---------|-----|--------|-------|
+| 84 | 0x54 | 01010100 | 'T' |
+| 72 | 0x48 | 01001000 | 'H' |
+| 105 | 0x69 | 01101001 | 'i' |
+
+**Why hex?**
+- Computers think in binary (0s and 1s)
+- Binary is too long to read (01010100)
+- Hex is compact and converts easily to binary
+- Each hex digit = 4 binary bits
+
+**Conversion trick:**
+- **Hex to Decimal:** 0x54 = (5 × 16) + 4 = 80 + 4 = 84
+- **Decimal to ASCII:** 84 = 'T' (lookup in ASCII table)
+
+**Think of it like:** Different languages for the same number - like saying "three" (English), "trois" (French), "三" (Chinese).
+
+---
+
+### What is ASCII?
+
+**Simple explanation:** ASCII is a **standard mapping** of numbers to characters.
+
+| Decimal | Hex | Character | Type |
+|---------|-----|-----------|------|
+| 65-90 | 0x41-0x5A | A-Z | Uppercase letters |
+| 97-122 | 0x61-0x7A | a-z | Lowercase letters |
+| 48-57 | 0x30-0x39 | 0-9 | Numbers |
+| 32 | 0x20 | (space) | Space |
+| 10 | 0x0A | \n | Newline |
+
+**Example:**
+```
+Hex bytes:  54 48 69 73
+Decimal:    84 72 105 115
+ASCII:      T  H  i   s
+```
+
+**Think of it like:** A codebook where 84 means 'T', 72 means 'H', etc.
+
+---
+
+### What is Encryption?
+
+**Simple explanation:** Encryption **scrambles data** so only people with the key can read it.
+
+**Good encryption (strong):**
+- AES, RSA - Used by banks, military
+- Very hard to break without the key
+
+**Bad encryption (weak):**
+- ADD cipher (this program) - Easy to break
+- XOR with short key - Can be cracked quickly
+
+**This program's encryption:**
+```
+Plain text:   "T"     = 84 (decimal)
+Key byte:     0xC5    = 197 (decimal)
+Encrypted:    84 + 197 = 281 → 281 mod 256 = 25 (wraps around)
+Result:       0x19
+```
+
+**Decryption (reverse operation):**
+```
+Encrypted:    0x19    = 25 (decimal)
+Key byte:     0xC5    = 197 (decimal)
+Decrypted:    25 - 197 = -172 → -172 mod 256 = 84
+Result:       84 = 'T'
+```
+
+**Think of it like:**
+- **Encryption:** Adding a secret number to each letter
+- **Decryption:** Subtracting the same secret number to get back the original
+
+---
+
+### What are Structs (Structures)?
+
+**Simple explanation:** A struct is a **container** that groups related data together.
+
+**Example: struct tm (time structure)**
+```c
+struct tm {
+    int tm_sec;      // Seconds (0-59)        [Offset: +0]
+    int tm_min;      // Minutes (0-59)        [Offset: +4]
+    int tm_hour;     // Hours (0-23)          [Offset: +8]
+    int tm_mday;     // Day of month (1-31)   [Offset: +12]
+    int tm_mon;      // Month (0-11)          [Offset: +16]
+    int tm_year;     // Years since 1900      [Offset: +20]
+    int tm_wday;     // Day of week (0-6)     [Offset: +24 = 0x18]
+    // ...
+};
+```
+
+**How to read it:**
+```assembly
+call localtime           ; Returns pointer to struct tm in EAX
+mov eax, [eax+18h]      ; Read the value 24 bytes from start
+                        ; 24 bytes = tm_wday field!
+```
+
+**Think of it like:** A form with labeled boxes:
+```
+┌─────────────────┐
+│ Seconds: [ 45 ] │  ← Offset +0
+│ Minutes: [ 30 ] │  ← Offset +4
+│ Hours:   [ 14 ] │  ← Offset +8
+│ Day:     [ 27 ] │  ← Offset +12
+│ Month:   [  0 ] │  ← Offset +16
+│ Year:    [126 ] │  ← Offset +20
+│ Weekday: [  1 ] │  ← Offset +24 (Monday!)
+└─────────────────┘
+```
+
+---
+
+### What is a Switch Statement?
+
+**Simple explanation:** A switch statement is like a **multiple-choice selector**.
+
+**In C:**
+```c
+int day = 2;  // Tuesday
+
+switch (day) {
+    case 0: printf("Sunday"); break;
+    case 1: printf("Monday"); break;
+    case 2: printf("Tuesday"); break;  // This one executes!
+    case 3: printf("Wednesday"); break;
+    // ...
+}
+```
+
+**In Assembly:**
+```assembly
+cmp eax, 0        ; Is it 0?
+je  case_0        ; If yes, jump to case_0
+cmp eax, 1        ; Is it 1?
+je  case_1        ; If yes, jump to case_1
+cmp eax, 2        ; Is it 2?
+je  case_2        ; If yes, jump to case_2
+// ...
+
+case_0:
+    mov ebx, offset "key0"
+    jmp end_switch
+case_1:
+    mov ebx, offset "key1"
+    jmp end_switch
+// ...
+```
+
+**Think of it like:** A vending machine - press button 1 for Coke, button 2 for Pepsi, button 3 for Sprite.
+
+---
+
+### Common Assembly Instructions (Cheat Sheet)
+
+| Instruction | What it does | Example | English |
+|-------------|-------------|---------|---------|
+| **MOV** | Copy data | `mov eax, 5` | Put 5 into EAX |
+| **ADD** | Addition | `add eax, 3` | Add 3 to EAX |
+| **SUB** | Subtraction | `sub eax, 2` | Subtract 2 from EAX |
+| **XOR** | Exclusive OR | `xor eax, ebx` | XOR EAX with EBX |
+| **CMP** | Compare | `cmp eax, 0` | Compare EAX to 0 (sets flags) |
+| **JE/JZ** | Jump if Equal/Zero | `je label` | If equal, jump to 'label' |
+| **JNE/JNZ** | Jump if Not Equal | `jne label` | If not equal, jump |
+| **CALL** | Call function | `call printf` | Call the printf function |
+| **PUSH** | Put on stack | `push eax` | Save EAX on stack |
+| **POP** | Get from stack | `pop eax` | Restore EAX from stack |
+| **LEA** | Load address | `lea eax, [ebp-8]` | Get address of variable |
+| **MOVZX** | Move + Zero extend | `movzx eax, al` | Copy AL to EAX (fill rest with 0s) |
+
+---
+
+### File Operations (What This Program Does)
+
+**C Functions and their purpose:**
+
+| Function | What it does | Example |
+|----------|-------------|---------|
+| `fopen("file.txt", "rb")` | Open file for reading | Opens input.txt |
+| `fgetc(file)` | Read one byte (character) | Reads next byte |
+| `fputc(byte, file)` | Write one byte | Writes encrypted byte |
+| `rewind(file)` | Go back to start of file | Restart reading key file |
+| `fclose(file)` | Close file | Clean up |
+| `EOF` | End Of File marker | -1 (0xFFFFFFFF) |
+
+**How encryption works in this program:**
+```c
+while (input_byte = fgetc(input_file)) != EOF) {
+    key_byte = fgetc(key_file);
+    if (key_byte == EOF) {
+        rewind(key_file);        // Start over if key ends
+        key_byte = fgetc(key_file);
+    }
+    encrypted = input_byte + key_byte;
+    fputc(encrypted, output_file);
+}
+```
+
+**Visual flow:**
+```
+input.txt:  [T][H][i][s]...
+            ↓  ↓  ↓  ↓
+key2:       [K][E][Y][1][K][E][Y][2]... (repeats if needed)
+            ↓  ↓  ↓  ↓
+ADD:        +  +  +  +
+            ↓  ↓  ↓  ↓
+output.txt: [?][?][?][?]... (encrypted bytes)
+```
+
+---
+
+### Tools You'll Use
+
+**IDA Free:**
+- **What:** Interactive DisAssembler (free version)
+- **Does:** Converts binary → assembly → pseudocode
+- **Key feature:** Press F5 to "decompile" (shows C-like code)
+
+**objdump:**
+- **What:** Command-line disassembler
+- **Does:** Shows assembly from binary
+- **Usage:** `objdump -d -M intel program.exe`
+
+**radare2:**
+- **What:** Advanced reverse engineering framework
+- **Does:** Disassembly, debugging, analysis
+- **Usage:** `radare2 program.exe`
+
+**strings:**
+- **What:** Extracts readable text from binary
+- **Does:** Finds "input.txt", "key0", error messages
+- **Usage:** `strings program.exe`
+
+**Python:**
+- **What:** Programming language
+- **Does:** Quick scripts for decryption/analysis
+- **Usage:** Test theories, automate tasks
+
+---
+
+### Reverse Engineering Workflow
+
+**Step-by-step process for beginners:**
+
+```
+1. File Analysis
+   ├─ Check file type: `file program.exe`
+   ├─ Look for strings: `strings program.exe`
+   └─ Check size: `ls -lh program.exe`
+
+2. Static Analysis (without running)
+   ├─ Open in IDA Free
+   ├─ Find strings (Shift+F12)
+   ├─ Find main function (cross-references)
+   └─ Decompile (F5) to understand logic
+
+3. Pattern Recognition
+   ├─ Look for crypto functions (XOR, ADD, encryption)
+   ├─ Find file operations (fopen, fgetc, fputc)
+   ├─ Identify loops (encryption typically in loops)
+   └─ Spot system calls (time, localtime, etc.)
+
+4. Key Finding
+   ├─ Trace data flow (where does key come from?)
+   ├─ Understand algorithm (ADD vs XOR vs AES?)
+   └─ Extract key selection logic
+
+5. Verification
+   ├─ Write Python script to test theory
+   ├─ Decrypt sample data
+   └─ Confirm with known plaintext
+```
+
+---
+
+### Common Patterns to Recognize
+
+**Pattern 1: Time-based behavior**
+```assembly
+call _time              ; Get current time
+call _localtime         ; Convert to local time
+mov eax, [eax+18h]     ; Access tm_wday
+```
+→ **Means:** Program behavior changes by day/hour
+
+**Pattern 2: File encryption loop**
+```assembly
+loop_start:
+    call _fgetc         ; Read byte
+    cmp eax, -1         ; Check EOF
+    je loop_end
+    ; ... process byte ...
+    call _fputc         ; Write byte
+    jmp loop_start
+```
+→ **Means:** Processing file byte-by-byte
+
+**Pattern 3: XOR encryption**
+```assembly
+mov al, [input_byte]
+xor al, [key_byte]      ; Opcode: 30/32
+mov [output_byte], al
+```
+→ **Means:** XOR cipher
+
+**Pattern 4: ADD encryption**
+```assembly
+mov al, [input_byte]
+add al, [key_byte]      ; Opcode: 00/02
+mov [output_byte], al
+```
+→ **Means:** ADD cipher (this program!)
+
+---
+
+### Quick Tips for Mock Tests
+
+1. **Start simple:** Look at strings first - they give huge clues
+2. **Use F5 often:** Pseudocode is easier to read than assembly
+3. **Follow the data:** Track where variables come from
+4. **Know your opcodes:**
+   - 00-03 = ADD
+   - 30-33 = XOR
+   - 80-83 = Arithmetic group
+5. **Check offsets:** `[eax+18h]` after `localtime()` = tm_wday
+6. **Test with Python:** Confirm your findings programmatically
+7. **Don't panic:** Most student exercises are simple algorithms
+
+---
+
+### Glossary
+
+- **Binary:** Machine code file (.exe, .elf)
+- **Disassembly:** Converting machine code → assembly
+- **Decompilation:** Converting assembly → C-like pseudocode (approximate)
+- **Register:** Fast CPU storage (EAX, EBX, etc.)
+- **Stack:** Temporary memory for function calls
+- **Opcode:** Numeric code for assembly instruction
+- **Offset:** Distance from a starting point (e.g., +24 bytes)
+- **Pointer:** Memory address (location of data)
+- **EOF:** End of File marker (-1)
+- **Cipher:** Algorithm for encryption/decryption
+- **Plaintext:** Original unencrypted data
+- **Ciphertext:** Encrypted data
+- **Key:** Secret value used for encryption
+- **Hash:** One-way conversion (can't reverse)
+
+---
+
 ## Question 1: Key File Usage Investigation
 
 ### a) How mock_1.exe uses the key files (key0-key7)
